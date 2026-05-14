@@ -199,6 +199,25 @@ const RiskAssessment = sequelize.define('RiskAssessment', {
   aiAnalysis: { type: DataTypes.TEXT }
 }, { tableName: 'risk_assessments', timestamps: true });
 
+// Audit Log
+const AuditLog = sequelize.define('AuditLog', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  entity_type: { type: DataTypes.STRING, allowNull: false },
+  entity_id: { type: DataTypes.INTEGER, allowNull: false },
+  action: { type: DataTypes.STRING, allowNull: false },
+  changed_by: { type: DataTypes.STRING },
+  previous_value: { type: DataTypes.TEXT },
+  new_value: { type: DataTypes.TEXT }
+}, { tableName: 'audit_logs', timestamps: true, updatedAt: false });
+
+// AI Analyses (for global pattern detection results)
+const AIAnalysis = sequelize.define('AIAnalysis', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  analysis_type: { type: DataTypes.STRING(100) },
+  content: { type: DataTypes.TEXT },
+  model: { type: DataTypes.STRING(100) }
+}, { tableName: 'ai_analyses', timestamps: true, updatedAt: false });
+
 // Safety Alerts
 const SafetyAlert = sequelize.define('SafetyAlert', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
@@ -227,5 +246,7 @@ module.exports = {
   ComplianceReport,
   ShiftSchedule,
   RiskAssessment,
-  SafetyAlert
+  SafetyAlert,
+  AuditLog,
+  AIAnalysis
 };

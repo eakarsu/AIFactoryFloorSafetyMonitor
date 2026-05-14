@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiUsers, FiShield, FiAlertTriangle, FiActivity, FiCheckSquare, FiTool,
-  FiClipboard, FiPhone, FiPackage, FiFileText, FiClock, FiBell } from 'react-icons/fi';
+  FiClipboard, FiPhone, FiPackage, FiFileText, FiClock, FiBell, FiZap, FiBookOpen } from 'react-icons/fi';
 import { dashboardAPI } from '../services/api';
 
 const features = [
@@ -18,6 +18,8 @@ const features = [
   { path: '/shift-schedules', title: 'Shift Schedules', desc: 'Manage worker shift assignments, zone coverage, and attendance tracking.', icon: FiClock, color: '#a855f7', bg: '#faf5ff' },
   { path: '/emergency-contacts', title: 'Emergency Contacts', desc: 'Quick access to internal, medical, fire, and hazmat emergency contacts.', icon: FiPhone, color: '#e11d48', bg: '#fff1f2' },
   { path: '/safety-alerts', title: 'Safety Alerts', desc: 'Issue and manage factory-wide safety alerts, warnings, and notifications.', icon: FiBell, color: '#ea580c', bg: '#fff7ed' },
+  { path: '/ai-insights', title: 'AI Insights', desc: 'Cross-entity AI: global pattern detection, predictive risk scoring, and PPE reorder alerts.', icon: FiZap, color: '#7c3aed', bg: '#f5f3ff', ai: true },
+  { path: '/audit-logs', title: 'Audit Log', desc: 'Tamper-evident audit log of every CRUD, AI analysis, login, and auto-alert event.', icon: FiBookOpen, color: '#475569', bg: '#f1f5f9' },
 ];
 
 export default function Dashboard() {

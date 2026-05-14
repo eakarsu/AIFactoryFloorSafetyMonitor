@@ -9,8 +9,13 @@ const authenticateToken = (req, res, next) => {
     return res.status(401).json({ error: 'Access denied. No token provided.' });
   }
 
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 16) {
+    return res.status(500).json({ error: 'Server misconfiguration: JWT_SECRET missing or too short.' });
+  }
+
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'factory-safety-monitor-secret-key-2024');
+    const decoded = jwt.verify(token, secret);
     req.user = decoded;
     next();
   } catch (err) {

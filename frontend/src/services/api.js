@@ -39,7 +39,7 @@ export const dashboardAPI = {
 // Generic CRUD API factory
 function createCrudAPI(resource) {
   return {
-    getAll: () => api.get(`/${resource}`),
+    getAll: (params = {}) => api.get(`/${resource}`, { params }),
     getById: (id) => api.get(`/${resource}/${id}`),
     create: (data) => api.post(`/${resource}`, data),
     update: (id, data) => api.put(`/${resource}/${id}`, data),
@@ -61,5 +61,24 @@ export const complianceReportsAPI = createCrudAPI('compliance-reports');
 export const shiftSchedulesAPI = createCrudAPI('shift-schedules');
 export const riskAssessmentsAPI = createCrudAPI('risk-assessments');
 export const safetyAlertsAPI = createCrudAPI('safety-alerts');
+
+// Audit logs (read-only)
+export const auditLogsAPI = {
+  getAll: (params = {}) => api.get('/audit-logs', { params }),
+  getById: (id) => api.get(`/audit-logs/${id}`)
+};
+
+// AI cross-entity endpoints
+export const aiAPI = {
+  globalAnalysis: () => api.post('/ai/global-analysis'),
+  predictiveRiskScoring: () => api.post('/ai/predictive-risk-scoring'),
+  ppeReorderAlerts: () => api.post('/ai/ppe-reorder-alerts'),
+  analyses: (params = {}) => api.get('/ai/analyses', { params }),
+  oshaComplianceCheck: (body = {}) => api.post('/ai/osha-compliance-check', body),
+  nearMissAnalyze: (body = {}) => api.post('/ai/near-miss-analyze', body),
+  // Apply pass 5 wave-1
+  agenticSafetyOfficer: (body = {}) => api.post('/ai/agentic-safety-officer', body),
+  predictiveMaintenance: (body = {}) => api.post('/ai/predictive-maintenance', body)
+};
 
 export default api;

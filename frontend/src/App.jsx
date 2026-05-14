@@ -3,7 +3,15 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import FeaturePage from './pages/FeaturePage';
+import AuditLogPage from './pages/AuditLogPage';
+import AIInsightsPage from './pages/AIInsightsPage';
+import IncidentPredictPage from './pages/IncidentPredictPage';
+import OshaNearMissPage from './pages/OshaNearMissPage';
+import AgenticPredictivePage from './pages/AgenticPredictivePage';
+import IntegrationsPage from './pages/IntegrationsPage';
 import Layout from './components/Layout';
+
+import Batch03Features from './pages/Batch03Features';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -35,6 +43,7 @@ export default function App() {
   if (!user) {
     return (
       <Routes>
+          <Route path="/batch03" element={<Batch03Features />} />
         <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
@@ -58,6 +67,12 @@ export default function App() {
         <Route path="/shift-schedules" element={<FeaturePage feature="shift-schedules" />} />
         <Route path="/risk-assessments" element={<FeaturePage feature="risk-assessments" />} />
         <Route path="/safety-alerts" element={<FeaturePage feature="safety-alerts" />} />
+        <Route path="/audit-logs" element={<AuditLogPage />} />
+        <Route path="/ai-insights" element={<AIInsightsPage />} />
+        <Route path="/ai/incident-predict" element={<IncidentPredictPage />} />
+        <Route path="/ai/osha-near-miss" element={<OshaNearMissPage />} />
+        <Route path="/ai/agentic-predictive" element={<AgenticPredictivePage />} />
+        <Route path="/integrations" element={<IntegrationsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

@@ -19,17 +19,30 @@ export default function FeaturePage({ feature }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState(null);
   const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
+  const limit = 20;
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.getAll();
-      setItems(data);
+      const { data } = await api.getAll({ page, limit });
+      // Backend returns { data: [...], pagination: {...} } for paginated lists,
+      // or a raw array for endpoints like /low-stock.
+      if (Array.isArray(data)) {
+        setItems(data);
+        setPagination({ page: 1, limit: data.length, total: data.length, totalPages: 1 });
+      } else if (data && Array.isArray(data.data)) {
+        setItems(data.data);
+        setPagination(data.pagination || { page, limit, total: data.data.length, totalPages: 1 });
+      } else {
+        setItems([]);
+      }
     } catch (err) {
       setError('Failed to load data');
     }
     setLoading(false);
-  }, [api]);
+  }, [api, page]);
 
   useEffect(() => {
     loadData();
@@ -259,7 +272,7 @@ export default function FeaturePage({ feature }) {
         <div className="data-header">
           <div>
             <h2>{config.title}</h2>
-            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{items.length} records</span>
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{pagination.total} records</span>
           </div>
           <button className="btn btn-primary" onClick={handleCreate}>
             <FiPlus /> New {config.singular}
@@ -305,6 +318,28 @@ export default function FeaturePage({ feature }) {
               ))}
             </tbody>
           </table>
+        )}
+
+        {pagination.totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, padding: 16 }}>
+            <button
+              className="btn btn-secondary btn-sm"
+              disabled={page <= 1}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+            >
+              Prev
+            </button>
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+              Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
+            </span>
+            <button
+              className="btn btn-secondary btn-sm"
+              disabled={page >= pagination.totalPages}
+              onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+            >
+              Next
+            </button>
+          </div>
         )}
       </div>
 
