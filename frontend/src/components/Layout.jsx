@@ -25,6 +25,8 @@ const navItems = [
   { path: '/shift-schedules', label: 'Shift Schedules', icon: FiClock },
   { path: '/emergency-contacts', label: 'Emergency Contacts', icon: FiPhone },
   { path: '/safety-alerts', label: 'Safety Alerts', icon: FiBell },
+  { section: 'Custom Views' },
+  { path: '/custom-views', label: 'Floor Analytics', icon: FiActivity },
 ];
 
 export default function Layout({ user, onLogout, children }) {

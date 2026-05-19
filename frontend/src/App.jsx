@@ -12,6 +12,7 @@ import IntegrationsPage from './pages/IntegrationsPage';
 import Layout from './components/Layout';
 
 import Batch03Features from './pages/Batch03Features';
+import CustomViewsPage from './pages/CustomViewsPage';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -73,6 +74,7 @@ export default function App() {
         <Route path="/ai/osha-near-miss" element={<OshaNearMissPage />} />
         <Route path="/ai/agentic-predictive" element={<AgenticPredictivePage />} />
         <Route path="/integrations" element={<IntegrationsPage />} />
+        <Route path="/custom-views" element={<CustomViewsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

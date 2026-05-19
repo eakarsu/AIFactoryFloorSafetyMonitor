@@ -63,6 +63,7 @@ app.use('/api/incident-video-analysis', require('./routes/incidentVideoAnalysis'
 app.use('/api/behavioral-safety', require('./routes/behavioralSafety'));
 app.use('/api/predictive-maintenance', require('./routes/predictiveMaintenance'));
 app.use('/api/hazard-map', require('./routes/hazardMap'));
+app.use('/api/custom-views', require('../routes/customViews'));
 
 // Health check
 app.get('/api/health', (req, res) => {
