@@ -1,4 +1,31 @@
 export const featureConfig = {
+  'lockout-tagout-review': {
+    title: 'Lockout Tagout Review',
+    singular: 'LOTO Review',
+    apiKey: 'lockoutTagoutReviewAPI',
+    hasAI: false,
+    getItemTitle: (item) => `${item.lotoId} - ${item.equipmentName}`,
+    columns: [
+      { key: 'lotoId', label: 'LOTO ID' },
+      { key: 'equipmentName', label: 'Equipment' },
+      { key: 'department', label: 'Department' },
+      { key: 'authorizedEmployee', label: 'Authorized Employee' },
+      { key: 'verificationStatus', label: 'Verification', badge: true },
+      { key: 'riskLevel', label: 'Risk', badge: true },
+      { key: 'status', label: 'Status', badge: true },
+    ],
+    fields: [
+      { key: 'lotoId', label: 'LOTO ID', type: 'text', required: true },
+      { key: 'equipmentName', label: 'Equipment', type: 'text', required: true },
+      { key: 'department', label: 'Department', type: 'text' },
+      { key: 'energySources', label: 'Energy Sources', type: 'textarea', fullWidth: true },
+      { key: 'authorizedEmployee', label: 'Authorized Employee', type: 'text' },
+      { key: 'verificationStatus', label: 'Verification Status', type: 'select', options: ['pending_verify', 'verified', 'failed'] },
+      { key: 'riskLevel', label: 'Risk Level', type: 'select', options: ['low', 'medium', 'high', 'critical'] },
+      { key: 'status', label: 'Status', type: 'select', options: ['active', 'released', 'expired'] },
+    ],
+    defaultValues: { verificationStatus: 'pending_verify', riskLevel: 'medium', status: 'active' }
+  },
   'employees': {
     title: 'Employees',
     singular: 'Employee',

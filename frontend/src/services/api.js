@@ -61,6 +61,7 @@ export const complianceReportsAPI = createCrudAPI('compliance-reports');
 export const shiftSchedulesAPI = createCrudAPI('shift-schedules');
 export const riskAssessmentsAPI = createCrudAPI('risk-assessments');
 export const safetyAlertsAPI = createCrudAPI('safety-alerts');
+export const lockoutTagoutReviewAPI = createCrudAPI('lockout-tagout-review');
 
 // Audit logs (read-only)
 export const auditLogsAPI = {

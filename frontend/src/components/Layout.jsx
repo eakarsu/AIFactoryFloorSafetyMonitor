@@ -25,6 +25,7 @@ const navItems = [
   { path: '/shift-schedules', label: 'Shift Schedules', icon: FiClock },
   { path: '/emergency-contacts', label: 'Emergency Contacts', icon: FiPhone },
   { path: '/safety-alerts', label: 'Safety Alerts', icon: FiBell },
+  { path: '/lockout-tagout-review', label: 'Lockout Tagout', icon: FiTool },
   { section: 'Custom Views' },
   { path: '/custom-views', label: 'Floor Analytics', icon: FiActivity },
 ];

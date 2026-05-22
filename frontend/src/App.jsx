@@ -14,6 +14,9 @@ import Layout from './components/Layout';
 import Batch03Features from './pages/Batch03Features';
 import CustomViewsPage from './pages/CustomViewsPage';
 
+import CodexCustomVizFeature from './pages/CodexCustomVizFeature';
+import CodexOperationsFeature from './pages/CodexOperationsFeature';
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -44,6 +47,9 @@ export default function App() {
   if (!user) {
     return (
       <Routes>
+        <Route path="/codex/custom-viz" element={<CodexCustomVizFeature />} />
+        <Route path="/codex/operations" element={<CodexOperationsFeature />} />
+
           <Route path="/batch03" element={<Batch03Features />} />
         <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
@@ -68,6 +74,7 @@ export default function App() {
         <Route path="/shift-schedules" element={<FeaturePage feature="shift-schedules" />} />
         <Route path="/risk-assessments" element={<FeaturePage feature="risk-assessments" />} />
         <Route path="/safety-alerts" element={<FeaturePage feature="safety-alerts" />} />
+        <Route path="/lockout-tagout-review" element={<FeaturePage feature="lockout-tagout-review" />} />
         <Route path="/audit-logs" element={<AuditLogPage />} />
         <Route path="/ai-insights" element={<AIInsightsPage />} />
         <Route path="/ai/incident-predict" element={<IncidentPredictPage />} />
