@@ -1,104 +1,32 @@
 require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
+require('./governance/runtime').validateRuntime();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const { sequelize } = require('./models');
-const authRoutes = require('./routes/auth');
-const dashboardRoutes = require('./routes/dashboard');
-const aiRoutes = require('./routes/ai');
-const auditLogRoutes = require('./routes/auditLogs');
-const integrationsRoutes = require('./routes/integrations');
-const {
-  employeeRoutes, ppeDetectionRoutes, hazardZoneRoutes, incidentRoutes,
-  safetyTrainingRoutes, equipmentInspectionRoutes, safetyAuditRoutes,
-  emergencyContactRoutes, ppeInventoryRoutes, complianceReportRoutes,
-  shiftScheduleRoutes, riskAssessmentRoutes, safetyAlertRoutes
-} = require('./routes/crud');
-
 const app = express();
 const PORT = process.env.BACKEND_PORT || 4000;
-
-// Security headers
+const allowedOrigins = String(process.env.CLIENT_URL || 'http://localhost:3000').split(',').map((v) => v.trim());
 app.use(helmet());
-
-// Env-based CORS allowlist
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:3000')
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean);
-
-app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin) return cb(null, true);
-    if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) return cb(null, true);
-    return cb(new Error(`CORS: origin ${origin} not allowed`));
-  },
-  credentials: true
-}));
+app.use(cors({ origin: (origin, cb) => !origin || allowedOrigins.includes(origin) ? cb(null, true) : cb(new Error('Origin not allowed')), credentials: true }));
 app.use(express.json({ limit: '10mb' }));
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/employees', employeeRoutes);
-app.use('/api/ppe-detections', ppeDetectionRoutes);
-app.use('/api/hazard-zones', hazardZoneRoutes);
-app.use('/api/incidents', incidentRoutes);
-app.use('/api/safety-trainings', safetyTrainingRoutes);
-app.use('/api/equipment-inspections', equipmentInspectionRoutes);
-app.use('/api/safety-audits', safetyAuditRoutes);
-app.use('/api/emergency-contacts', emergencyContactRoutes);
-app.use('/api/ppe-inventory', ppeInventoryRoutes);
-app.use('/api/compliance-reports', complianceReportRoutes);
-app.use('/api/shift-schedules', shiftScheduleRoutes);
-app.use('/api/risk-assessments', riskAssessmentRoutes);
-app.use('/api/safety-alerts', safetyAlertRoutes);
-app.use('/api/ai', aiRoutes);
-app.use('/api/audit-logs', auditLogRoutes);
-app.use('/api/integrations', integrationsRoutes);
-app.use('/api/agentic-safety-officer', require('./routes/agenticSafetyOfficer'));
-app.use('/api/ppe-vision-monitor', require('./routes/ppeVisionMonitor'));
-app.use('/api/wearable-integration', require('./routes/wearableIntegration'));
-app.use('/api/incident-video-analysis', require('./routes/incidentVideoAnalysis'));
-app.use('/api/behavioral-safety', require('./routes/behavioralSafety'));
-app.use('/api/predictive-maintenance', require('./routes/predictiveMaintenance'));
-app.use('/api/hazard-map', require('./routes/hazardMap'));
-app.use('/api/lockout-tagout-review', require('./routes/lockoutTagoutReview'));
-app.use('/api/custom-views', require('../routes/customViews'));
-
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
-});
-
-// Start server
-async function startServer() {
-  try {
-    await sequelize.authenticate();
-    console.log('Database connected successfully');
-    // Only auto-sync in non-production. In production use sequelize-cli migrations.
-    if (process.env.NODE_ENV !== 'production') {
-      await sequelize.sync({ alter: true });
-      console.log('Database synced (dev mode)');
-    } else {
-      console.log('Production mode: skipping auto-sync; ensure migrations are run');
-    }
-
-    
-// === Batch 03 Gaps & Frontend Mounts ===
-try {
-  const _batch03 = require('../routes/batch03Gaps');
-  if (typeof authenticateToken === 'function') app.use('/api', authenticateToken, _batch03);
-  else app.use('/api', _batch03);
-} catch (_e) { /* batch03 gap routes optional */ }
-
-app.listen(PORT, () => {
-      console.log(`Backend server running on http://localhost:${PORT}`);
-    });
-  } catch (err) {
-    console.error('Failed to start server:', err.message);
-    process.exit(1);
-  }
-}
-
-startServer();
+const { employeeRoutes, ppeDetectionRoutes, hazardZoneRoutes, incidentRoutes, safetyTrainingRoutes, equipmentInspectionRoutes, safetyAuditRoutes, emergencyContactRoutes, ppeInventoryRoutes, complianceReportRoutes, shiftScheduleRoutes, riskAssessmentRoutes, safetyAlertRoutes } = require('./routes/crud');
+const routes = [
+  ['/api/auth', require('./routes/auth')], ['/api/dashboard', require('./routes/dashboard')], ['/api/employees', employeeRoutes],
+  ['/api/ppe-detections', ppeDetectionRoutes], ['/api/hazard-zones', hazardZoneRoutes], ['/api/incidents', incidentRoutes],
+  ['/api/safety-trainings', safetyTrainingRoutes], ['/api/equipment-inspections', equipmentInspectionRoutes], ['/api/safety-audits', safetyAuditRoutes],
+  ['/api/emergency-contacts', emergencyContactRoutes], ['/api/ppe-inventory', ppeInventoryRoutes], ['/api/compliance-reports', complianceReportRoutes],
+  ['/api/shift-schedules', shiftScheduleRoutes], ['/api/risk-assessments', riskAssessmentRoutes], ['/api/safety-alerts', safetyAlertRoutes],
+  ['/api/ai', require('./routes/ai')], ['/api/audit-logs', require('./routes/auditLogs')], ['/api/integrations', require('./routes/integrations')],
+  ['/api/agentic-safety-officer', require('./routes/agenticSafetyOfficer')], ['/api/ppe-vision-monitor', require('./routes/ppeVisionMonitor')],
+  ['/api/wearable-integration', require('./routes/wearableIntegration')], ['/api/incident-video-analysis', require('./routes/incidentVideoAnalysis')],
+  ['/api/behavioral-safety', require('./routes/behavioralSafety')], ['/api/predictive-maintenance', require('./routes/predictiveMaintenance')],
+  ['/api/hazard-map', require('./routes/hazardMap')], ['/api/lockout-tagout-review', require('./routes/lockoutTagoutReview')],
+  ['/api/custom-views', require('../routes/customViews')], ['/api/governed-workflow', require('./governance/router')],
+];
+routes.forEach(([mount, router]) => app.use(mount, router));
+app.get('/api/health', (_req, res) => res.json({ status: 'OK', timestamp: new Date().toISOString() }));
+app.use((err, _req, res, _next) => { console.error('Request failed:', err.message); res.status(500).json({ error: 'Internal server error' }); });
+async function start() { await sequelize.authenticate(); app.listen(PORT, () => console.log(`Backend server running on http://localhost:${PORT}`)); }
+if (require.main === module) start().catch((error) => { console.error('Startup failed:', error.message); process.exit(1); });
+module.exports = app;

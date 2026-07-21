@@ -2,11 +2,11 @@ const { Sequelize } = require('sequelize');
 require('dotenv').config({ path: require('path').resolve(__dirname, '../../../.env') });
 
 const sequelize = new Sequelize(
-  process.env.DB_NAME || 'factory_safety_monitor',
-  process.env.DB_USER || 'postgres',
-  process.env.DB_PASSWORD || 'postgres',
+  process.env.DB_NAME,
+  process.env.DB_USER,
+  process.env.DB_PASSWORD,
   {
-    host: process.env.DB_HOST || 'localhost',
+    host: process.env.DB_HOST,
     port: process.env.DB_PORT || 5432,
     dialect: 'postgres',
     logging: false,

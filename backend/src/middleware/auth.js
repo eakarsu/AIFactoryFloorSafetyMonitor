@@ -10,7 +10,7 @@ const authenticateToken = (req, res, next) => {
   }
 
   const secret = process.env.JWT_SECRET;
-  if (!secret || secret.length < 16) {
+  if (!secret || secret.length < 32) {
     return res.status(500).json({ error: 'Server misconfiguration: JWT_SECRET missing or too short.' });
   }
 
