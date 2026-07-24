@@ -1,6 +1,6 @@
 require('dotenv').config({ path: require('path').resolve(__dirname, '../../../.env') });
 
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const OPENROUTER_API_URL = `${(process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '')}/chat/completions`;
 
 async function callOpenRouter(systemPrompt, userMessage) {
   const apiKey = process.env.OPENROUTER_API_KEY;
