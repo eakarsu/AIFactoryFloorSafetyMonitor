@@ -4,6 +4,12 @@ const { sequelize, User, Employee, PPEDetection, HazardZone, Incident, SafetyTra
   EquipmentInspection, SafetyAudit, EmergencyContact, PPEInventory, ComplianceReport,
   ShiftSchedule, RiskAssessment, SafetyAlert } = require('../models');
 
+function requireDemoPassword() {
+  const password = process.env.DEMO_PASSWORD;
+  if (!password || password.length < 12) throw new Error('DEMO_PASSWORD must be at least 12 characters');
+  return password;
+}
+
 async function seed() {
   try {
     await sequelize.authenticate();
@@ -12,7 +18,7 @@ async function seed() {
     console.log('🗑️  Tables recreated');
 
     // Users
-    const hashedPassword = await bcrypt.hash('password123', 10);
+    const hashedPassword = await bcrypt.hash(requireDemoPassword(), 10);
     await User.bulkCreate([
       { email: 'admin@factory.com', password: hashedPassword, name: 'John Admin', role: 'admin' },
       { email: 'manager@factory.com', password: hashedPassword, name: 'Sarah Manager', role: 'manager' },
@@ -287,9 +293,7 @@ async function seed() {
     console.log('   Safety Audits(15), Emergency Contacts(15), PPE Inventory(15),');
     console.log('   Compliance Reports(15), Shift Schedules(15), Risk Assessments(15),');
     console.log('   Safety Alerts(15)');
-    console.log('\n🔑 Login credentials:');
-    console.log('   Admin: admin@factory.com / password123');
-    console.log('   Manager: manager@factory.com / password123');
+    console.log('\n🔑 Demo login users provisioned.');
 
     process.exit(0);
   } catch (err) {

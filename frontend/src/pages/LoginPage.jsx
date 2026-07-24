@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { authAPI } from '../services/api';
 
+const demoPassword = import.meta.env.VITE_ENABLE_DEMO_CREDENTIAL_AUTOFILL === 'true'
+  ? import.meta.env.VITE_DEMO_PASSWORD || ''
+  : '';
+
 const quickLogins = [
-  { label: 'Admin', email: 'admin@factory.com', password: 'password123' },
-  { label: 'Manager', email: 'manager@factory.com', password: 'password123' },
-  { label: 'Supervisor', email: 'supervisor@factory.com', password: 'password123' },
-  { label: 'Worker', email: 'worker@factory.com', password: 'password123' }
+  { label: 'Admin', email: 'admin@factory.com' },
+  { label: 'Manager', email: 'manager@factory.com' },
+  { label: 'Supervisor', email: 'supervisor@factory.com' },
+  { label: 'Worker', email: 'worker@factory.com' }
 ];
 
 export default function LoginPage({ onLogin }) {
@@ -29,7 +33,7 @@ export default function LoginPage({ onLogin }) {
 
   const handleQuickLogin = (creds) => {
     setEmail(creds.email);
-    setPassword(creds.password);
+    setPassword(demoPassword);
   };
 
   return (
@@ -61,7 +65,7 @@ export default function LoginPage({ onLogin }) {
           <p>Quick Login (Demo Accounts)</p>
           <div className="quick-login-btns">
             {quickLogins.map(q => (
-              <button key={q.label} className="quick-login-btn" onClick={() => handleQuickLogin(q)}>
+              <button key={q.label} disabled={!demoPassword} className="quick-login-btn" onClick={() => handleQuickLogin(q)}>
                 {q.label}
               </button>
             ))}
