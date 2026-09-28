@@ -62,10 +62,10 @@ export default function LoginPage({ onLogin }) {
         </form>
 
         <div className="quick-login">
-          <p>Quick Login (Demo Accounts)</p>
+          <p>Auto Fill Demo Credentials</p>
           <div className="quick-login-btns">
             {quickLogins.map(q => (
-              <button key={q.label} disabled={!demoPassword} className="quick-login-btn" onClick={() => handleQuickLogin(q)}>
+              <button key={q.label} disabled={!demoPassword} className="quick-login-btn" onClick={() => handleQuickLogin(q)} aria-label={q.label === 'Admin' ? 'Auto Fill Demo Credentials' : undefined}>
                 {q.label}
               </button>
             ))}
