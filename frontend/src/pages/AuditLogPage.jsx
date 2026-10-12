@@ -13,19 +13,23 @@ export default function AuditLogPage() {
   const [filterAction, setFilterAction] = useState('');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
+  const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
       const params = { page, limit: 20 };
       if (filterType) params.entity_type = filterType;
       if (filterAction) params.action = filterAction;
       if (search) params.q = search;
       const { data } = await auditLogsAPI.getAll(params);
-      setItems(data.data || []);
-      setPagination(data.pagination || { page, limit: 20, total: 0, totalPages: 1 });
+      if (!Array.isArray(data?.data)) throw new Error('Invalid audit log response');
+      setItems(data.data);
+      setPagination(data.pagination || { page, limit: 20, total: data.data.length, totalPages: 1 });
     } catch (err) {
-      console.error(err);
+      setItems([]);
+      setError(err.response?.data?.error || err.message || 'Failed to load audit entries');
     }
     setLoading(false);
   }, [page, filterType, filterAction, search]);
@@ -88,6 +92,7 @@ export default function AuditLogPage() {
           </div>
         </div>
 
+        {error && <div role="alert" className="error-message" style={{ margin: 16 }}>{error}</div>}
         {loading ? (
           <div className="loading-container"><div className="loader" /></div>
         ) : items.length === 0 ? (

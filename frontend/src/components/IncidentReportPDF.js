@@ -13,7 +13,7 @@ export default function IncidentReportPDF() {
     api.get('/custom-views/incidents')
       .then(r => {
         if (cancelled) return;
-        const list = r?.data?.items || [];
+        const list = Array.isArray(r?.data?.items) ? r.data.items : [];
         setItems(list);
         if (list.length > 0) setSelectedId(String(list[0].id));
       })

@@ -76,6 +76,28 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Demo login uses only the existing configured account. No credential is sent to the browser.
+router.post('/demo-login', async (_req, res) => {
+  try {
+    const email = process.env.DEMO_EMAIL;
+    const password = process.env.DEMO_PASSWORD;
+    if (!email || !password) return res.status(503).json({ error: 'Demo credentials are not configured.' });
+    const user = await User.findOne({ where: { email } });
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(503).json({ error: 'The configured demo account is unavailable.' });
+    }
+    const token = jwt.sign(
+      { id: user.id, email: user.email, name: user.name, role: user.role },
+      getJwtSecret(),
+      { expiresIn: '24h' }
+    );
+    await logAudit('User', user.id, 'LOGIN', user.email);
+    res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+  } catch (_err) {
+    res.status(500).json({ error: 'Demo login is unavailable.' });
+  }
+});
+
 // Get current user
 router.get('/me', require('../middleware/auth').authenticateToken, async (req, res) => {
   try {

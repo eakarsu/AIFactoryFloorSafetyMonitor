@@ -14,6 +14,7 @@ export default function IntegrationsPage() {
   const [checklists, setChecklists] = useState([]);
   const [newCl, setNewCl] = useState({ area: '', frequency: 'weekly', items: '' });
   const [advisories, setAdvisories] = useState([]);
+  const [loadErrors, setLoadErrors] = useState({});
   const [adv, setAdv] = useState({ equipment_id: '', zone: '', severity: 'medium', reason: '' });
 
   const safe = async (fn) => {
@@ -27,11 +28,13 @@ export default function IntegrationsPage() {
 
   const loadChecklists = async () => {
     const r = await safe(() => api.get('/integrations/checklists'));
-    if (r.ok) setChecklists(r.data?.data || []);
+    if (r.ok && Array.isArray(r.data?.data)) { setChecklists(r.data.data); setLoadErrors(previous => ({ ...previous, checklists: '' })); }
+    else setLoadErrors(previous => ({ ...previous, checklists: r.data?.error || 'Invalid checklist response' }));
   };
   const loadAdvisories = async () => {
     const r = await safe(() => api.get('/integrations/auto-stop/advisories'));
-    if (r.ok) setAdvisories(r.data?.data || []);
+    if (r.ok && Array.isArray(r.data?.data)) { setAdvisories(r.data.data); setLoadErrors(previous => ({ ...previous, advisories: '' })); }
+    else setLoadErrors(previous => ({ ...previous, advisories: r.data?.error || 'Invalid advisory response' }));
   };
 
   useEffect(() => { loadChecklists(); loadAdvisories(); }, []);
@@ -95,6 +98,7 @@ export default function IntegrationsPage() {
 
         {tab === 'checklists' && (
           <div style={{ padding: 16 }}>
+            {loadErrors.checklists && <div role="alert" className="error-message">{loadErrors.checklists}</div>}
             <div style={{ display: 'grid', gap: 8, maxWidth: 600 }}>
               <input placeholder="area" value={newCl.area} onChange={e => setNewCl({ ...newCl, area: e.target.value })} />
               <select value={newCl.frequency} onChange={e => setNewCl({ ...newCl, frequency: e.target.value })}>
@@ -111,7 +115,7 @@ export default function IntegrationsPage() {
                   <tr key={c.id}>
                     <td>{c.id}</td><td>{c.area}</td><td>{c.frequency}</td>
                     <td>{c.last_run || '-'}</td>
-                    <td>{(c.items || []).length}</td>
+                    <td>{Array.isArray(c.items) ? c.items.length : 0}</td>
                     <td><button onClick={() => runChecklist(c.id)}>Run</button></td>
                   </tr>
                 ))}
@@ -122,6 +126,7 @@ export default function IntegrationsPage() {
 
         {tab === 'auto-stop' && (
           <div style={{ padding: 16 }}>
+            {loadErrors.advisories && <div role="alert" className="error-message">{loadErrors.advisories}</div>}
             <div style={{ display: 'grid', gap: 8, maxWidth: 600 }}>
               <input placeholder="equipment_id" value={adv.equipment_id} onChange={e => setAdv({ ...adv, equipment_id: e.target.value })} />
               <input placeholder="zone" value={adv.zone} onChange={e => setAdv({ ...adv, zone: e.target.value })} />

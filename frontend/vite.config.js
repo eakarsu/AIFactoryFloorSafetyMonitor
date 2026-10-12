@@ -18,7 +18,12 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: process.env.VITE_PROXY_TARGET || 'http://localhost:4000',
-        changeOrigin: true
+        changeOrigin: true,
+        configure(proxy) {
+          proxy.on('proxyReq', (upstream, request, response) => {
+            response.once('close', () => { if (!response.writableEnded) upstream.destroy(); });
+          });
+        }
       }
     }
   }

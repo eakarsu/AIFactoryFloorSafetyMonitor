@@ -2,7 +2,8 @@ require('dotenv').config({ path: require('path').resolve(__dirname, '../../../.e
 
 const OPENROUTER_API_URL = `${(process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '')}/chat/completions`;
 
-async function callOpenRouter(systemPrompt, userMessage) {
+async function callOpenRouter(systemPrompt, userMessage, options = {}) {
+  options.signal?.throwIfAborted();
   const apiKey = process.env.OPENROUTER_API_KEY;
   const model = process.env.OPENROUTER_MODEL || 'anthropic/claude-3-5-sonnet-20241022';
 
@@ -23,6 +24,7 @@ async function callOpenRouter(systemPrompt, userMessage) {
         'HTTP-Referer': 'http://localhost:3000',
         'X-Title': 'AI Factory Floor Safety Monitor'
       },
+      signal: options.signal,
       body: JSON.stringify({
         model: model,
         messages: [
@@ -44,7 +46,12 @@ async function callOpenRouter(systemPrompt, userMessage) {
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || 'No response generated';
+    options.signal?.throwIfAborted();
+    const choice = data.choices?.[0];
+    const content = choice?.message?.content;
+    if (choice?.message?.refusal || choice?.finish_reason === 'length' || choice?.finish_reason === 'content_filter' || typeof content !== 'string' || !content.trim()) {
+      return { success: false, error: 'OpenRouter did not return a complete usable answer.', result: null };
+    }
 
     return {
       success: true,
@@ -54,6 +61,7 @@ async function callOpenRouter(systemPrompt, userMessage) {
       usage: data.usage
     };
   } catch (err) {
+    if (options.signal?.aborted) throw err;
     return {
       success: false,
       error: `Failed to connect to OpenRouter: ${err.message}`,

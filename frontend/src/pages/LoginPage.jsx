@@ -1,17 +1,6 @@
 import React, { useState } from 'react';
 import { authAPI } from '../services/api';
 
-const demoPassword = import.meta.env.VITE_ENABLE_DEMO_CREDENTIAL_AUTOFILL === 'true'
-  ? import.meta.env.VITE_DEMO_PASSWORD || ''
-  : '';
-
-const quickLogins = [
-  { label: 'Admin', email: 'admin@factory.com' },
-  { label: 'Manager', email: 'manager@factory.com' },
-  { label: 'Supervisor', email: 'supervisor@factory.com' },
-  { label: 'Worker', email: 'worker@factory.com' }
-];
-
 export default function LoginPage({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,9 +20,17 @@ export default function LoginPage({ onLogin }) {
     setLoading(false);
   };
 
-  const handleQuickLogin = (creds) => {
-    setEmail(creds.email);
-    setPassword(demoPassword);
+  const handleQuickLogin = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const { data } = await authAPI.demoLogin();
+      onLogin(data.user, data.token);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Demo login failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -62,13 +59,9 @@ export default function LoginPage({ onLogin }) {
         </form>
 
         <div className="quick-login">
-          <p>Auto Fill Demo Credentials</p>
+          <p>Configured demo account</p>
           <div className="quick-login-btns">
-            {quickLogins.map(q => (
-              <button key={q.label} disabled={!demoPassword} className="quick-login-btn" onClick={() => handleQuickLogin(q)} aria-label={q.label === 'Admin' ? 'Auto Fill Demo Credentials' : undefined}>
-                {q.label}
-              </button>
-            ))}
+            <button type="button" disabled={loading} className="quick-login-btn" onClick={handleQuickLogin}>Log In as Demo</button>
           </div>
         </div>
       </div>

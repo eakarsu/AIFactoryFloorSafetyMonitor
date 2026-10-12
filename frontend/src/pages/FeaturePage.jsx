@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiPlus, FiEdit2, FiTrash2, FiZap, FiX } from 'react-icons/fi';
-import ReactMarkdown from 'react-markdown';
+import FormattedAIReport from '../components/FormattedAIReport';
 import * as apis from '../services/api';
 import { featureConfig } from '../services/featureConfig';
 
@@ -178,9 +178,7 @@ export default function FeaturePage({ feature }) {
                   <span className="model-tag">{aiResult.model || 'Claude Haiku'}</span>
                 </div>
                 {aiResult.success ? (
-                  <div className="ai-analysis-content">
-                    <ReactMarkdown>{aiResult.result}</ReactMarkdown>
-                  </div>
+                  <FormattedAIReport response={aiResult.result} />
                 ) : (
                   <div className="error-message">{aiResult.error}</div>
                 )}
@@ -199,9 +197,7 @@ export default function FeaturePage({ feature }) {
                   <div className="ai-icon"><FiZap /></div>
                   <h3>Previous AI Analysis</h3>
                 </div>
-                <div className="ai-analysis-content">
-                  <ReactMarkdown>{selectedItem.aiAnalysis}</ReactMarkdown>
-                </div>
+                <FormattedAIReport response={selectedItem.aiAnalysis} />
               </div>
             )}
           </div>

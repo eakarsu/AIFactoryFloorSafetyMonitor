@@ -7,6 +7,37 @@ const { parseAIJson } = require('../utils/parseAIJson');
 const { logAudit } = require('../services/audit');
 const models = require('../models');
 
+const cancellableTools = new Set(['/incident-predict', '/osha-compliance-check', '/near-miss-analyze', '/agentic-safety-officer', '/predictive-maintenance']);
+router.use((req, res, next) => {
+  if (req.method !== 'POST' || !cancellableTools.has(req.path)) return next();
+  const controller = new AbortController();
+  req.aiSignal = controller.signal;
+  const abort = () => controller.abort();
+  const close = () => { if (!res.writableEnded) abort(); };
+  const cleanup = () => { req.off('aborted', abort); res.off('close', close); };
+  req.once('aborted', abort);
+  res.once('close', close);
+  res.once('finish', cleanup);
+  next();
+});
+
+// Provider receipts and their audit commit together; cancellation cannot leave a late report.
+async function saveRequestedAnalysis(req, values, action, metadata) {
+  req.aiSignal?.throwIfAborted();
+  return models.sequelize.transaction(async transaction => {
+    req.aiSignal?.throwIfAborted();
+    const saved = await models.AIAnalysis.create(values, { transaction });
+    req.aiSignal?.throwIfAborted();
+    await models.AuditLog.create({
+      entity_type: 'AIAnalysis', entity_id: saved.id, action,
+      changed_by: String(req.user?.email || req.user?.id || ''),
+      previous_value: null, new_value: JSON.stringify(metadata)
+    }, { transaction });
+    req.aiSignal?.throwIfAborted();
+    return saved;
+  });
+}
+
 /**
  * POST /api/ai/global-analysis
  * Fetches cross-entity safety data and asks the AI to identify patterns,
@@ -287,32 +318,34 @@ ${lowStockItems.map(i => `- ${i.itemName} (${i.category}): ${i.quantity} in stoc
  */
 router.post('/incident-predict', authenticateToken, aiRateLimiter, async (req, res) => {
   try {
+    if (!process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY === 'your_openrouter_api_key_here') return res.status(503).json({ error: 'AI not configured: OPENROUTER_API_KEY is missing.' });
     const { Op } = require('sequelize');
     const { Incident, RiskAssessment, AIAnalysis } = models;
     const { zone, shift, days_back } = req.body || {};
     const lookback = Math.min(Math.max(parseInt(days_back, 10) || 90, 7), 365);
     const since = new Date(Date.now() - lookback * 24 * 60 * 60 * 1000);
 
-    const incidentWhere = { occurredAt: { [Op.gte]: since } };
-    if (zone) incidentWhere.zone = zone;
-    if (shift) incidentWhere.shift = shift;
+    if (shift) return res.status(422).json({ error: 'Native incident records do not contain shift assignments; a shift-filtered prediction is unavailable.', code: 'INCIDENT_SHIFT_FILTER_UNAVAILABLE' });
+    const incidentWhere = { date: { [Op.gte]: since } };
+    if (zone) incidentWhere.location = zone;
 
     const [incidents, risks] = await Promise.all([
-      Incident.findAll({ where: incidentWhere, limit: 100, order: [['occurredAt', 'DESC']] }),
+      Incident.findAll({ where: incidentWhere, limit: 100, order: [['date', 'DESC']] }),
       RiskAssessment.findAll({ limit: 50, order: [['createdAt', 'DESC']] }),
     ]);
 
     const incidentSummary = incidents.length
-      ? incidents.map(i => `- ${i.occurredAt}: zone=${i.zone || 'N/A'} shift=${i.shift || 'N/A'} type=${i.type || 'N/A'} severity=${i.severity || 'N/A'} cause=${i.rootCause || 'unknown'}`).join('\n')
+      ? incidents.map(i => `- ${i.date}: location=${i.location} type=${i.type} severity=${i.severity} cause=${i.rootCause || 'not documented'}`).join('\n')
       : 'No incident history in window.';
     const riskSummary = risks.length
-      ? risks.map(r => `- ${r.createdAt}: zone=${r.zone || 'N/A'} score=${r.riskScore || 'N/A'} hazards=${r.hazards || 'N/A'}`).join('\n')
+      ? risks.map(r => `- ${r.assessmentDate}: area=${r.area} risk=${r.riskLevel} hazards=${r.hazardDescription}`).join('\n')
       : 'No risk assessments available.';
 
     const systemPrompt = 'You are an industrial safety analyst specializing in incident prediction. Return only valid JSON.';
     const userPrompt = `Predict the most likely incident types for the next 30 days.
 
-Filters: zone=${zone || 'ALL'}, shift=${shift || 'ALL'}, lookback_days=${lookback}
+Filters: native incident location=${zone || 'ALL'}, lookback_days=${lookback}
+Native incident records contain no shift assignments. Any proposed shift-specific action is hypothetical planning, not an observed shift-specific pattern or measured risk.
 
 Incident history (${incidents.length}):
 ${incidentSummary}
@@ -337,26 +370,26 @@ Return JSON only with shape:
   "summary": "<short narrative>"
 }`;
 
-    const analysis = await callOpenRouter(systemPrompt, userPrompt);
+    const analysis = await callOpenRouter(systemPrompt, userPrompt, { signal: req.aiSignal });
+    if (!analysis.success) return res.status(502).json({ error: analysis.error || 'AI call failed.' });
     const parsed = parseAIJson(analysis.result);
 
-    const created = await AIAnalysis.create({
-      analysisType: 'incident_predict',
-      input: JSON.stringify({ zone: zone || null, shift: shift || null, days_back: lookback }),
-      result: analysis.result,
-      model: analysis.model,
-    });
-    await logAudit('AIAnalysis', created.id, 'AI_INCIDENT_PREDICT', req.user?.email || 'system', null, { zone, shift, lookback });
+    const created = await saveRequestedAnalysis(req, {
+      analysis_type: 'incident_predict', content: analysis.result, model: analysis.model
+    }, 'AI_INCIDENT_PREDICT', { zone, shift, lookback });
 
+    req.aiSignal?.throwIfAborted();
     res.json({
       analysis_id: created.id,
       filters: { zone: zone || null, shift: shift || null, lookback_days: lookback },
       incident_count: incidents.length,
       risk_assessment_count: risks.length,
       predictions: parsed,
+      result: analysis.result,
       model: analysis.model,
     });
   } catch (err) {
+    if (req.aiSignal?.aborted) return;
     res.status(500).json({ error: err.message });
   }
 });
@@ -376,6 +409,8 @@ router.post('/osha-compliance-check', authenticateToken, aiRateLimiter, async (r
     const { Op } = require('sequelize');
     const { Incident, PPEInventory, AIAnalysis } = models;
     const { focus_areas, scope, department } = req.body || {};
+    if (department || scope === 'department') return res.status(422).json({ error: 'Native incident records do not contain department assignments; a department-filtered compliance review is unavailable.', code: 'INCIDENT_DEPARTMENT_FILTER_UNAVAILABLE' });
+    if (scope && scope !== 'facility') return res.status(400).json({ error: 'Scope must be facility.' });
     const focusList = Array.isArray(focus_areas) ? focus_areas.filter(Boolean) : [];
 
     const since = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
@@ -434,7 +469,7 @@ ${incidentSummary}
 === PPE INVENTORY (${ppeRows.length}) ===
 ${ppeSummary}`;
 
-    const analysis = await callOpenRouter(systemPrompt, userMessage);
+    const analysis = await callOpenRouter(systemPrompt, userMessage, { signal: req.aiSignal });
 
     if (!analysis.success) {
       return res.status(502).json({ error: analysis.error });
@@ -442,13 +477,11 @@ ${ppeSummary}`;
 
     const parsed = parseAIJson(analysis.result);
 
-    const saved = await AIAnalysis.create({
-      analysis_type: 'osha_compliance_check',
-      content: analysis.result,
-      model: analysis.model || 'anthropic/claude-3-5-sonnet-20241022'
-    });
-    await logAudit('AIAnalysis', saved.id, 'AI_OSHA_COMPLIANCE_CHECK', req.user?.email || req.user?.id, null, { scope: scope || 'facility', department: department || null });
+    const saved = await saveRequestedAnalysis(req, {
+      analysis_type: 'osha_compliance_check', content: analysis.result, model: analysis.model
+    }, 'AI_OSHA_COMPLIANCE_CHECK', { scope: scope || 'facility', department: department || null });
 
+    req.aiSignal?.throwIfAborted();
     res.json({
       success: true,
       analysis_id: saved.id,
@@ -460,6 +493,7 @@ ${ppeSummary}`;
       model: analysis.model
     });
   } catch (err) {
+    if (req.aiSignal?.aborted) return;
     res.status(500).json({ error: err.message });
   }
 });
@@ -538,7 +572,7 @@ Window: ${windowDays} days
 Reports (${nearMisses.length}):
 ${nearMisses.map(r => `[${r.id}] location=${r.location} date=${r.date || 'unknown'} factors=${r.contributing_factors || 'unspecified'} description=${r.description}`).join('\n')}`;
 
-    const analysis = await callOpenRouter(systemPrompt, userMessage);
+    const analysis = await callOpenRouter(systemPrompt, userMessage, { signal: req.aiSignal });
 
     if (!analysis.success) {
       return res.status(502).json({ error: analysis.error });
@@ -546,13 +580,11 @@ ${nearMisses.map(r => `[${r.id}] location=${r.location} date=${r.date || 'unknow
 
     const parsed = parseAIJson(analysis.result);
 
-    const saved = await AIAnalysis.create({
-      analysis_type: 'near_miss_analysis',
-      content: analysis.result,
-      model: analysis.model || 'anthropic/claude-3-5-sonnet-20241022'
-    });
-    await logAudit('AIAnalysis', saved.id, 'AI_NEAR_MISS_ANALYZE', req.user?.email || req.user?.id, null, { window_days: windowDays, report_count: nearMisses.length });
+    const saved = await saveRequestedAnalysis(req, {
+      analysis_type: 'near_miss_analysis', content: analysis.result, model: analysis.model
+    }, 'AI_NEAR_MISS_ANALYZE', { window_days: windowDays, report_count: nearMisses.length });
 
+    req.aiSignal?.throwIfAborted();
     res.json({
       success: true,
       analysis_id: saved.id,
@@ -563,6 +595,7 @@ ${nearMisses.map(r => `[${r.id}] location=${r.location} date=${r.date || 'unknow
       model: analysis.model
     });
   } catch (err) {
+    if (req.aiSignal?.aborted) return;
     res.status(500).json({ error: err.message });
   }
 });
@@ -590,20 +623,20 @@ router.post('/agentic-safety-officer', authenticateToken, aiRateLimiter, async (
     const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
 
     const incidentWhere = { createdAt: { [Op.gte]: since } };
-    if (department) incidentWhere.department = department;
+    if (department) return res.status(422).json({ error: 'Native incident records do not contain department assignments; a department-filtered safety review is unavailable.', code: 'INCIDENT_DEPARTMENT_FILTER_UNAVAILABLE' });
 
     const [incidents, risks, ppe] = await Promise.all([
-      Incident.findAll({ where: incidentWhere, attributes: ['type', 'severity', 'location', 'department', 'date'], order: [['createdAt', 'DESC']], limit: 50 }).catch(() => []),
-      RiskAssessment.findAll({ attributes: ['title', 'area', 'riskLevel', 'likelihood', 'consequence'], order: [['createdAt', 'DESC']], limit: 20 }).catch(() => []),
-      PPEInventory.findAll({ attributes: ['itemType', 'quantity', 'reorderLevel'], limit: 50 }).catch(() => []),
+      Incident.findAll({ where: incidentWhere, attributes: ['type', 'severity', 'location', 'date'], order: [['createdAt', 'DESC']], limit: 50 }),
+      RiskAssessment.findAll({ attributes: ['title', 'area', 'riskLevel', 'likelihood', 'consequence'], order: [['createdAt', 'DESC']], limit: 20 }),
+      PPEInventory.findAll({ attributes: ['itemName', 'quantity', 'minQuantity'], limit: 50 }),
     ]);
 
     const stats = {
       window_days: windowDays,
       department: department || 'all',
       incident_count: incidents.length,
-      high_severity_count: incidents.filter(i => ['high', 'critical', 'severe'].includes(String(i.severity || '').toLowerCase())).length,
-      ppe_below_reorder: ppe.filter(p => Number(p.quantity || 0) < Number(p.reorderLevel || 0)).length,
+      high_severity_count: incidents.filter(i => ['major', 'critical'].includes(i.severity)).length,
+      ppe_below_reorder: ppe.filter(p => Number(p.quantity) < Number(p.minQuantity)).length,
     };
 
     const systemPrompt = `You are an agentic factory safety officer. Synthesize incidents, risk assessments, and PPE inventory into a multi-phase intervention plan. Cite OSHA 29 CFR 1910 references when relevant.`;
@@ -625,19 +658,17 @@ Return strict JSON:
   "disclaimer": "AI planning aid only — does not replace safety officer judgment or OSHA compliance audits."
 }`;
 
-    const analysis = await callOpenRouter(systemPrompt, userMessage);
+    const analysis = await callOpenRouter(systemPrompt, userMessage, { signal: req.aiSignal });
     if (!analysis.success) {
       return res.status(502).json({ error: analysis.error || 'AI call failed' });
     }
     const parsed = parseAIJson(analysis.result);
 
-    const saved = await AIAnalysis.create({
-      analysis_type: 'agentic_safety_officer',
-      content: analysis.result,
-      model: analysis.model || 'anthropic/claude-3-5-sonnet-20241022'
-    });
-    await logAudit('AIAnalysis', saved.id, 'AI_AGENTIC_SAFETY_OFFICER', req.user?.email || req.user?.id, null, stats);
+    const saved = await saveRequestedAnalysis(req, {
+      analysis_type: 'agentic_safety_officer', content: analysis.result, model: analysis.model
+    }, 'AI_AGENTIC_SAFETY_OFFICER', stats);
 
+    req.aiSignal?.throwIfAborted();
     res.json({
       success: true,
       analysis_id: saved.id,
@@ -647,6 +678,7 @@ Return strict JSON:
       model: analysis.model,
     });
   } catch (err) {
+    if (req.aiSignal?.aborted) return;
     res.status(500).json({ error: err.message });
   }
 });
@@ -670,11 +702,11 @@ router.post('/predictive-maintenance', authenticateToken, aiRateLimiter, async (
     const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
 
     const incidentWhere = { createdAt: { [Op.gte]: since } };
-    if (department) incidentWhere.department = department;
+    if (department) return res.status(422).json({ error: 'Native incident records do not contain department assignments; a department-filtered maintenance review is unavailable.', code: 'INCIDENT_DEPARTMENT_FILTER_UNAVAILABLE' });
 
     const [inspections, incidents] = await Promise.all([
-      EquipmentInspection.findAll({ order: [['createdAt', 'DESC']], limit: 100 }).catch(() => []),
-      Incident.findAll({ where: incidentWhere, attributes: ['type', 'severity', 'description', 'date'], order: [['createdAt', 'DESC']], limit: 60 }).catch(() => []),
+      EquipmentInspection.findAll({ order: [['createdAt', 'DESC']], limit: 100 }),
+      Incident.findAll({ where: incidentWhere, attributes: ['type', 'severity', 'description', 'date'], order: [['createdAt', 'DESC']], limit: 60 }),
     ]);
 
     const stats = {
@@ -699,19 +731,17 @@ Return strict JSON:
   "disclaimer": "Predictive guide only — does not replace OEM and certified inspector findings."
 }`;
 
-    const analysis = await callOpenRouter(systemPrompt, userMessage);
+    const analysis = await callOpenRouter(systemPrompt, userMessage, { signal: req.aiSignal });
     if (!analysis.success) {
       return res.status(502).json({ error: analysis.error || 'AI call failed' });
     }
     const parsed = parseAIJson(analysis.result);
 
-    const saved = await AIAnalysis.create({
-      analysis_type: 'predictive_maintenance',
-      content: analysis.result,
-      model: analysis.model || 'anthropic/claude-3-5-sonnet-20241022'
-    });
-    await logAudit('AIAnalysis', saved.id, 'AI_PREDICTIVE_MAINTENANCE', req.user?.email || req.user?.id, null, stats);
+    const saved = await saveRequestedAnalysis(req, {
+      analysis_type: 'predictive_maintenance', content: analysis.result, model: analysis.model
+    }, 'AI_PREDICTIVE_MAINTENANCE', stats);
 
+    req.aiSignal?.throwIfAborted();
     res.json({
       success: true,
       analysis_id: saved.id,
@@ -721,6 +751,7 @@ Return strict JSON:
       model: analysis.model,
     });
   } catch (err) {
+    if (req.aiSignal?.aborted) return;
     res.status(500).json({ error: err.message });
   }
 });

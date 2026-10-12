@@ -1,7 +1,7 @@
+import FormattedAIReport from "../components/FormattedAIReport";
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiZap, FiTrendingUp, FiPackage } from 'react-icons/fi';
-import ReactMarkdown from 'react-markdown';
 import { aiAPI } from '../services/api';
 
 export default function AIInsightsPage() {
@@ -12,15 +12,18 @@ export default function AIInsightsPage() {
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(null);
   const [latest, setLatest] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await aiAPI.analyses({ page, limit: 20 });
-      setAnalyses(data.data || []);
-      setPagination(data.pagination || { page, limit: 20, total: 0, totalPages: 1 });
+      if (!Array.isArray(data?.data)) throw new Error('Invalid AI analyses response');
+      setAnalyses(data.data);
+      setPagination(data.pagination || { page, limit: 20, total: data.data.length, totalPages: 1 });
     } catch (e) {
+      setAnalyses([]);
       setError('Failed to load AI analyses');
     }
     setLoading(false);
@@ -76,20 +79,10 @@ export default function AIInsightsPage() {
               <div className="ai-icon"><FiZap /></div>
               <h3>Latest: {latest.kind}</h3>
             </div>
-            {latest.data?.result && (
-              <div className="ai-analysis-content">
-                <ReactMarkdown>{latest.data.result}</ReactMarkdown>
-              </div>
-            )}
-            {latest.data?.parsed && (
-              <pre style={{ background: '#f5f5f5', padding: 12, fontSize: 11, overflow: 'auto' }}>
-                {JSON.stringify(latest.data.parsed, null, 2)}
-              </pre>
-            )}
+            {(latest.data?.parsed !== undefined || latest.data?.result !== undefined) &&
+              <FormattedAIReport response={latest.data.parsed ?? latest.data.result} />}
             {latest.data?.reorder_recommendations && (
-              <pre style={{ background: '#f5f5f5', padding: 12, fontSize: 11, overflow: 'auto' }}>
-                {JSON.stringify(latest.data.reorder_recommendations, null, 2)}
-              </pre>
+              <FormattedAIReport response={latest.data.reorder_recommendations} />
             )}
           </div>
         )}
@@ -108,18 +101,19 @@ export default function AIInsightsPage() {
                   <th>Time</th>
                   <th>Type</th>
                   <th>Model</th>
-                  <th>Snippet</th>
+                  <th>Report</th>
                 </tr>
               </thead>
               <tbody>
-                {analyses.map(a => (
-                  <tr key={a.id}>
+                {analyses.map(a => (<React.Fragment key={a.id}>
+                  <tr>
                     <td>{new Date(a.createdAt).toLocaleString()}</td>
                     <td><span className="status-badge">{a.analysis_type}</span></td>
                     <td style={{ fontSize: 11 }}>{a.model}</td>
-                    <td style={{ fontSize: 11 }}>{(a.content || '').substring(0, 200)}…</td>
+                    <td><button type="button" className="btn btn-secondary btn-sm" onClick={() => setExpandedId(expandedId === a.id ? null : a.id)} aria-expanded={expandedId === a.id}>{expandedId === a.id ? 'Hide report' : 'View report'}</button></td>
                   </tr>
-                ))}
+                  {expandedId === a.id && <tr><td colSpan={4}><FormattedAIReport response={a.content} title={`${a.analysis_type.replaceAll('_', ' ')} report`} /></td></tr>}
+                </React.Fragment>))}
               </tbody>
             </table>
 

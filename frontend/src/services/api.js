@@ -29,6 +29,7 @@ api.interceptors.response.use(
 
 export const authAPI = {
   login: (email, password) => api.post('/auth/login', { email, password }),
+  demoLogin: () => api.post('/auth/demo-login'),
   me: () => api.get('/auth/me')
 };
 
@@ -75,11 +76,11 @@ export const aiAPI = {
   predictiveRiskScoring: () => api.post('/ai/predictive-risk-scoring'),
   ppeReorderAlerts: () => api.post('/ai/ppe-reorder-alerts'),
   analyses: (params = {}) => api.get('/ai/analyses', { params }),
-  oshaComplianceCheck: (body = {}) => api.post('/ai/osha-compliance-check', body),
-  nearMissAnalyze: (body = {}) => api.post('/ai/near-miss-analyze', body),
+  oshaComplianceCheck: (body = {}, options = {}) => api.post('/ai/osha-compliance-check', body, options),
+  nearMissAnalyze: (body = {}, options = {}) => api.post('/ai/near-miss-analyze', body, options),
   // Apply pass 5 wave-1
-  agenticSafetyOfficer: (body = {}) => api.post('/ai/agentic-safety-officer', body),
-  predictiveMaintenance: (body = {}) => api.post('/ai/predictive-maintenance', body)
+  agenticSafetyOfficer: (body = {}, options = {}) => api.post('/ai/agentic-safety-officer', body, options),
+  predictiveMaintenance: (body = {}, options = {}) => api.post('/ai/predictive-maintenance', body, options)
 };
 
 export default api;
