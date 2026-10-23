@@ -24,6 +24,8 @@ const routes = [
   ['/api/hazard-map', require('./routes/hazardMap')], ['/api/lockout-tagout-review', require('./routes/lockoutTagoutReview')],
   ['/api/custom-views', require('../routes/customViews')], ['/api/governed-workflow', require('./governance/router')],
 ];
+app.use('/api/tasks', require('./routes/featurePack').tasksRouter);
+app.use('/api/feature-pack', require('./routes/featurePack').router);
 routes.forEach(([mount, router]) => app.use(mount, router));
 app.get('/api/health', (_req, res) => res.json({ status: 'OK', timestamp: new Date().toISOString() }));
 app.use((err, _req, res, _next) => { console.error('Request failed:', err.message); res.status(500).json({ error: 'Internal server error' }); });

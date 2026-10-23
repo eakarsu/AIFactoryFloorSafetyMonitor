@@ -34,12 +34,14 @@ function createCrudRoutes(modelName, aiAnalyzer) {
       const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
       const offset = (page - 1) * limit;
 
-      const { count, rows } = await Model.findAndCountAll({
-        order: [['createdAt', 'DESC']],
-        limit,
-        offset
-      });
-
+      let all = (await Model.findAll({ order: [['createdAt', 'DESC']] })).map(r=>r.toJSON ? r.toJSON() : r);
+      const { filterRecords, toCSV } = require('./featurePack');
+      all = filterRecords(all, req.query);
+      if (req.query.format === 'csv' || req.query.format === 'json') {
+        if (req.query.format === 'csv') { res.setHeader('Content-Type','text/csv'); res.setHeader('Content-Disposition','attachment; filename="export.csv"'); return res.send(toCSV(all)); }
+        res.setHeader('Content-Disposition','attachment; filename="export.json"'); return res.json(all);
+      }
+      const count = all.length; const rows = all.slice(offset, offset+limit);
       res.json({
         data: rows,
         pagination: {
